@@ -1,0 +1,11 @@
+Django==3.1.5
+djangorestframework==3.12.2
+psycopg2
+celery 
+redis
+selenium
+pandas
+lxml
+html5lib
+BeautifulSoup4
+requests

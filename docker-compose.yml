@@ -1,0 +1,82 @@
+version: '3.7'
+
+services:  
+  db:
+    image: postgres
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+
+  web:
+    build: ./backend/ez_stock
+    command: python3 manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ./backend/ez_stock/ezstock/:/code
+    environment:
+      - DEBUG=1
+      - DJANGO_ALLOWED_HOSTS=localhost 127.0.0.1 [::1]
+      - CELERY_BROKER=redis://redis:6379/0
+      - CELERY_BACKEND=redis://redis:6379/0
+    depends_on:
+      - db
+      - redis
+  
+  celery-worker:
+    build: ./backend/ez_stock
+    command: celery -A ezstock worker -l INFO
+    volumes:
+        - ./backend/ez_stock/ezstock/:/code
+    environment:
+        - DEBUG=1
+        - DJANGO_ALLOWED_HOSTS=localhost 127.0.0.1 [::1]
+        - CELERY_BROKER=redis://redis:6379/0
+        - CELERY_BACKEND=redis://redis:6379/0
+    depends_on:
+        - web
+        - redis
+    
+  celery-beat:
+    build: ./backend/ez_stock
+    command: celery -A ezstock beat -l INFO
+    volumes:
+        - ./backend/ez_stock/ezstock/:/code
+    environment:
+        - DEBUG=1
+        - DJANGO_ALLOWED_HOSTS=localhost 127.0.0.1 [::1]
+        - CELERY_BROKER=redis://redis:6379/0
+        - CELERY_BACKEND=redis://redis:6379/0
+    depends_on:
+        - web
+        - redis
+  
+  redis:
+    image: redis:alpine
+
+  frontend:
+    build: ./frontend
+    command: npm run serve
+    restart: always
+    volumes:
+      - ./frontend/ez-stock/:/app/
+
+  proxy:
+    image: psimonov/cors-anywhere
+    ports: 
+      - 3000:3000
+
+  nginx:
+    image: nginx:latest
+    ports:
+      - 80:8080
+    volumes:
+      - ./nginx_config.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - web
+      - frontend
+      - proxy
+
+volumes:
+  db-data:
